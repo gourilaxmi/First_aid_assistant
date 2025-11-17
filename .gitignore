@@ -1,0 +1,35 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+venv/
+env/
+backend/venv/
+backend/env/
+
+# Environment
+.env
+*.env
+backend/.env
+
+# Data & Results
+backend/data/
+test_results/
+performance_reports/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Large files
+*.bin
+*.pkl
+*.model
+
+# Nested repos
+First_aid_assistant/
