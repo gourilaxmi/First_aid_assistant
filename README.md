@@ -1,11 +1,11 @@
-# 🚑First Aid Assistant
+# First Aid Assistant
 
 An AI-powered first aid guidance platform built with a RAG (Retrieval-Augmented Generation) pipeline, FastAPI backend, and React frontend. Provides evidence-based first aid information sourced from authoritative medical references.
 
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Features](#features)
 - [Tech Stack](#tech-stack)
@@ -18,7 +18,7 @@ An AI-powered first aid guidance platform built with a RAG (Retrieval-Augmented 
 
 ---
 
-## ✨ Features
+## Features
 
 - **RAG-powered responses** using BioBERT embeddings + Pinecone vector search
 - **Conversation history** — save, rename, and delete past consultations
