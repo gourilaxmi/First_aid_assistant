@@ -241,7 +241,7 @@ function ChatInterface({ conversationId, onToggleHistory }) {
         )}
         <div className="flex-1 mx-4">
           <h1 className="text-xl font-semibold tracking-tight">
-            Professional First Aid Assistant
+             First Aid Assistant
           </h1>
           <p className="text-sm text-slate-300 mt-0.5">
             {isGuest

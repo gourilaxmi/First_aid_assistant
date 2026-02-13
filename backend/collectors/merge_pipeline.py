@@ -1,375 +1,221 @@
-"""
-Master Data Pipeline - Collects and merges data from all sources
-This is the CLASS that orchestrates data collection from multiple sources
-"""
-
+import sys
 import json
+import logging
 from pathlib import Path
-from typing import List, Dict, Optional
-from datetime import datetime
+from typing import List, Dict
+from collections import defaultdict
 
-from .red_cross import RedCrossCollector
-from .web_collector import (
-    EnhancedWebCollector,
-    MayoClinicCollector,
-    ClevelandClinicCollector,
-    HealthlineCollector,
-    CDCEmergencyCollector,
-    NHSCollector,
-    StJohnCollector,
-    WebMDCollector
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.FileHandler("merge_pipeline.log"),
+        logging.StreamHandler(sys.stdout)
+    ]
 )
+logger = logging.getLogger(__name__)
 
 
 class MasterDataPipeline:
-    """
-    Orchestrates data collection from all sources
-    
-    Usage:
-        pipeline = MasterDataPipeline(data_dir="./data")
-        scenarios = pipeline.collect_all(sources=['redcross', 'mayo', 'nhs'])
-        pipeline.deduplicate()
-        pipeline.save_merged("output.json")
-    """
-    
+   
     def __init__(self, data_dir: str = "./data"):
-        """
-        Initialize the pipeline
-        
-        Args:
-            data_dir: Directory to store collected data
-        """
         self.data_dir = Path(data_dir)
-        self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.data_dir.mkdir(exist_ok=True)
         
-        self.all_scenarios = []
-        self.sources_collected = []
-        
-        print(f"\n📁 Data directory: {self.data_dir.absolute()}")
+    def _normalize_scenario_signature(self, scenario: Dict) -> str:
+        title = scenario.get('title', scenario.get('emergency_type', '')).lower().strip()
+        desc = scenario.get('description', scenario.get('additional_info', ''))[:100].lower().strip()
+        return f"{title}:{desc}"
     
-    def collect_all(self, sources: Optional[List[str]] = None) -> List[Dict]:
-        """
-        Collect from all or specified sources
-        
-        Args:
-            sources: List of source names to collect from
-                    Options: 'redcross', 'mayo', 'cleveland', 
-                            'healthline', 'cdc', 'nhs', 'stjohn', 'webmd'
-                    If None, collects from all sources
-        
-        Returns:
-            List of all collected scenarios
-        """
-        if sources is None:
-            sources = ['redcross', 'mayo', 'cleveland', 
-                      'healthline', 'cdc', 'nhs', 'stjohn', 'webmd']
-        
-        print(f"\n🔄 Collecting from {len(sources)} sources: {', '.join(sources)}")
-        print(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        
-        # Red Cross PDF
-        if 'redcross' in sources:
-            print("\n" + "─"*60)
-            print("📕 RED CROSS PDF")
-            print("─"*60)
-            try:
-                collector = RedCrossCollector(data_dir=str(self.data_dir))
-                scenarios = collector.collect()
-                self.all_scenarios.extend(scenarios)
-                self.sources_collected.append('redcross')
-                print(f"✅ Red Cross: {len(scenarios)} scenarios collected")
-            except Exception as e:
-                print(f"❌ Red Cross failed: {e}")
-        
-        # Mayo Clinic
-        if 'mayo' in sources:
-            print("\n" + "─"*60)
-            print("🏥 MAYO CLINIC")
-            print("─"*60)
-            try:
-                collector = MayoClinicCollector(data_dir=str(self.data_dir))
-                scenarios = collector.collect(max_pages=100)
-                self.all_scenarios.extend(scenarios)
-                self.sources_collected.append('mayo')
-                print(f"✅ Mayo Clinic: {len(scenarios)} scenarios collected")
-            except Exception as e:
-                print(f"❌ Mayo Clinic failed: {e}")
-        
-        # Cleveland Clinic
-        if 'cleveland' in sources:
-            print("\n" + "─"*60)
-            print("🏥 CLEVELAND CLINIC")
-            print("─"*60)
-            try:
-                collector = ClevelandClinicCollector(data_dir=str(self.data_dir))
-                scenarios = collector.collect(max_pages=100)
-                self.all_scenarios.extend(scenarios)
-                self.sources_collected.append('cleveland')
-                print(f"✅ Cleveland Clinic: {len(scenarios)} scenarios collected")
-            except Exception as e:
-                print(f"❌ Cleveland Clinic failed: {e}")
-        
-        # Healthline
-        if 'healthline' in sources:
-            print("\n" + "─"*60)
-            print("🏥 HEALTHLINE")
-            print("─"*60)
-            try:
-                collector = HealthlineCollector(data_dir=str(self.data_dir))
-                scenarios = collector.collect(max_pages=100)
-                self.all_scenarios.extend(scenarios)
-                self.sources_collected.append('healthline')
-                print(f"✅ Healthline: {len(scenarios)} scenarios collected")
-            except Exception as e:
-                print(f"❌ Healthline failed: {e}")
-        
-        # CDC Emergency Preparedness
-        if 'cdc' in sources:
-            print("\n" + "─"*60)
-            print("🏛️ CDC EMERGENCY PREPAREDNESS")
-            print("─"*60)
-            try:
-                collector = CDCEmergencyCollector(data_dir=str(self.data_dir))
-                scenarios = collector.collect(max_pages=100)
-                self.all_scenarios.extend(scenarios)
-                self.sources_collected.append('cdc')
-                print(f"✅ CDC: {len(scenarios)} scenarios collected")
-            except Exception as e:
-                print(f"❌ CDC failed: {e}")
-        
-        # NHS UK
-        if 'nhs' in sources:
-            print("\n" + "─"*60)
-            print("🏥 NHS UK")
-            print("─"*60)
-            try:
-                collector = NHSCollector(data_dir=str(self.data_dir))
-                scenarios = collector.collect(max_pages=100)
-                self.all_scenarios.extend(scenarios)
-                self.sources_collected.append('nhs')
-                print(f"✅ NHS UK: {len(scenarios)} scenarios collected")
-            except Exception as e:
-                print(f"❌ NHS UK failed: {e}")
-        
-        # St John Ambulance
-        if 'stjohn' in sources:
-            print("\n" + "─"*60)
-            print("🚑 ST JOHN AMBULANCE")
-            print("─"*60)
-            try:
-                collector = StJohnCollector(data_dir=str(self.data_dir))
-                scenarios = collector.collect(max_pages=100)
-                self.all_scenarios.extend(scenarios)
-                self.sources_collected.append('stjohn')
-                print(f"✅ St John: {len(scenarios)} scenarios collected")
-            except Exception as e:
-                print(f"❌ St John failed: {e}")
-        
-        # WebMD
-        if 'webmd' in sources:
-            print("\n" + "─"*60)
-            print("🏥 WEBMD")
-            print("─"*60)
-            try:
-                collector = WebMDCollector(data_dir=str(self.data_dir))
-                scenarios = collector.collect(max_pages=100)
-                self.all_scenarios.extend(scenarios)
-                self.sources_collected.append('webmd')
-                print(f"✅ WebMD: {len(scenarios)} scenarios collected")
-            except Exception as e:
-                print(f"❌ WebMD failed: {e}")
-        
-        print(f"\n{'='*60}")
-        print(f"✅ Collection complete: {len(self.all_scenarios)} total scenarios")
-        print(f"   Sources: {', '.join(self.sources_collected)}")
-        print(f"{'='*60}")
-        
-        return self.all_scenarios
+    def load_scenarios_from_file(self, filepath: str) -> List[Dict]:
+        try:
+            file_path = self.data_dir / filepath
+            if not file_path.exists():
+                logger.warning(f"File not found: {filepath}")
+                return []
+            
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                
+            if isinstance(data, list):
+                scenarios = data
+            elif 'scenarios' in data:
+                scenarios = data['scenarios']
+            else:
+                logger.warning(f"Unexpected JSON structure in {filepath}")
+                return []
+            
+            logger.info(f"Loaded {len(scenarios)} scenarios from {filepath}")
+            return scenarios
+            
+        except Exception as e:
+            logger.error(f"Error loading {filepath}: {e}")
+            return []
     
-    def load_checkpoints(self) -> Dict[str, List[Dict]]:
-        """
-        Load existing checkpoint files from data directory
+    def merge_scenarios(self, scenario_files: List[str]) -> Dict:
+       
+        logger.info("STARTING MASTER DATA PIPELINE")
         
-        Returns:
-            Dictionary mapping source name to list of scenarios
-        """
-        checkpoint_files = {
-            'redcross': 'redcross_scenarios.json',
-            'mayo': 'mayo_scenarios.json',
-            'cleveland': 'cleveland_scenarios.json',
-            'healthline': 'healthline_scenarios.json',
-            'cdc': 'cdc_scenarios.json',
-            'nhs': 'nhs_scenarios.json',
-            'stjohn': 'stjohn_scenarios.json',
-            'webmd': 'webmd_scenarios.json',
-        }
-        
-        checkpoint_data = {}
-        
-        print("\n📂 Loading checkpoint files...")
-        
-        for source, filename in checkpoint_files.items():
-            filepath = self.data_dir / filename
-            if filepath.exists():
-                try:
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        data = json.load(f)
-                        checkpoint_data[source] = data
-                        print(f"  ✅ {source:15s}: {len(data):4d} scenarios from {filename}")
-                except Exception as e:
-                    print(f"  ❌ {source:15s}: Error loading - {e}")
-        
-        if not checkpoint_data:
-            print("  ⚠️  No checkpoint files found")
-        else:
-            print(f"\n✅ Loaded {len(checkpoint_data)} checkpoint files")
-        
-        return checkpoint_data
-    
-    def merge_from_checkpoints(self, checkpoint_data: Dict[str, List[Dict]]):
-        """
-        Merge data from checkpoint files into all_scenarios
-        
-        Args:
-            checkpoint_data: Dictionary from load_checkpoints()
-        """
-        print("\n🔄 Merging checkpoint data...")
-        
-        for source, scenarios in checkpoint_data.items():
-            self.all_scenarios.extend(scenarios)
-            self.sources_collected.append(source)
-            print(f"  ✅ Merged {len(scenarios)} scenarios from {source}")
-        
-        print(f"\n✅ Total merged: {len(self.all_scenarios)} scenarios from {len(checkpoint_data)} sources")
-    
-    def deduplicate(self):
-        """
-        Remove duplicate scenarios based on title similarity
-        Uses case-insensitive title matching
-        """
-        print(f"\n🔄 Deduplicating scenarios...")
-        original_count = len(self.all_scenarios)
-        
-        # Simple deduplication by normalized title
-        seen_titles = set()
-        unique_scenarios = []
+        all_scenarios = []
+        source_stats = defaultdict(int)
+        seen_signatures = set()
         duplicates_removed = 0
         
-        for scenario in self.all_scenarios:
-            # Normalize title for comparison
-            title = scenario.get('title', '').lower().strip()
+        for filename in scenario_files:
+            scenarios = self.load_scenarios_from_file(filename)
             
-            # Also check for very similar content
-            title_key = title[:50] if len(title) > 50 else title
+            # Extract source name from filename
+            source_name = filename.replace('_scenarios.json', '').replace('_', ' ').title()
+            original_count = len(scenarios)
             
-            if title_key and title_key not in seen_titles:
-                seen_titles.add(title_key)
-                unique_scenarios.append(scenario)
-            else:
-                duplicates_removed += 1
-        
-        self.all_scenarios = unique_scenarios
-        
-        print(f"  ✅ Removed {duplicates_removed} duplicates")
-        print(f"  ✅ {len(self.all_scenarios)} unique scenarios remaining")
-    
-    def save_merged(self, filename: str):
-        """
-        Save merged scenarios to file
-        
-        Args:
-            filename: Output filename (saved in data_dir)
-        """
-        output_path = self.data_dir / filename
-        
-        print(f"\n💾 Saving merged data...")
-        
-        # Add scenario IDs if missing
-        for i, scenario in enumerate(self.all_scenarios):
-            if 'scenario_id' not in scenario:
-                scenario['scenario_id'] = f"scenario_{i+1:06d}"
-        
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(self.all_scenarios, f, indent=2, ensure_ascii=False)
-        
-        file_size_mb = output_path.stat().st_size / (1024 * 1024)
-        
-        print(f"  ✅ Saved to: {output_path}")
-        print(f"  ✅ File size: {file_size_mb:.2f} MB")
-        print(f"  ✅ Scenarios: {len(self.all_scenarios)}")
-    
-    def print_summary(self):
-        print("\n" + "="*70)
-        print(" "*20 + "COLLECTION SUMMARY")
-        print("="*70)
-        
-        print(f"\n📊 Total scenarios: {len(self.all_scenarios)}")
-        print(f"📂 Sources collected: {len(self.sources_collected)}")
-        
-        # Handle empty scenarios
-        if len(self.all_scenarios) == 0:
-            print("\n⚠️  No scenarios were collected!")
-            print("\n📝 Possible reasons:")
-            print("   • PDF file not found or not readable")
-            print("   • Ollama not running (needs: ollama serve)")
-            print("   • Data sources require manual download")
-            print("   • Collection filters too strict")
-            print("\n💡 Next steps:")
-            print("   1. Check that PDF exists in data directory")
-            print("   2. Verify Ollama is running: ollama serve")
-            print("   3. Check error messages above")
-            return
-        
-        if self.sources_collected:
-            print(f"\n✅ Sources breakdown:")
-            
-            # Count scenarios per source
-            source_counts = {}
-            for scenario in self.all_scenarios:
-                source = scenario.get('source', 'Unknown')
-                # Extract source name (before : or ,)
-                source_name = source.split(':')[0].split(',')[0].strip()
-                source_counts[source_name] = source_counts.get(source_name, 0) + 1
-            
-            for source in self.sources_collected:
-                # Try to match source in counts
-                count = 0
-                for src_name, cnt in source_counts.items():
-                    if source.lower() in src_name.lower():
-                        count = cnt
-                        break
+            # Deduplicate and add to collection
+            for scenario in scenarios:
+                signature = self._normalize_scenario_signature(scenario)
                 
-                if count > 0:
-                    percentage = (count / len(self.all_scenarios)) * 100
-                    bar = "█" * int(percentage / 2)
-                    print(f"  {source:15s}: {count:4d} ({percentage:5.1f}%) {bar}")
+                if signature not in seen_signatures:
+                    seen_signatures.add(signature)
+                    all_scenarios.append(scenario)
+                    source_stats[source_name] += 1
+                else:
+                    duplicates_removed += 1
         
-        # Category breakdown
-        from collections import Counter
-        categories = Counter(s.get('category', 'Unknown') for s in self.all_scenarios)
+     
         
-        print(f"\n📋 Top categories:")
-        for cat, count in categories.most_common(5):
-            percentage = (count / len(self.all_scenarios)) * 100
-            print(f"  {cat:20s}: {count:4d} ({percentage:5.1f}%)")
+        for source, count in sorted(source_stats.items(), key=lambda x: x[1], reverse=True):
+            logger.info(f"  {source:30s}: {count:4d} unique scenarios")
         
-        # Severity breakdown
-        severities = Counter(s.get('severity', 'Unknown') for s in self.all_scenarios)
+        logger.info(f"  Total Unique Scenarios: {len(all_scenarios)}")
+        logger.info(f"  Duplicates Removed: {duplicates_removed}")
         
-        print(f"\n⚠️  Severity levels:")
-        for sev in ['critical', 'severe', 'moderate', 'minor']:
-            if sev in severities:
-                count = severities[sev]
-                percentage = (count / len(self.all_scenarios)) * 100
-                print(f"  {sev:12s}: {count:4d} ({percentage:5.1f}%)")
+        return {
+            'total_scenarios': len(all_scenarios),
+            'duplicates_removed': duplicates_removed,
+            'source_breakdown': dict(source_stats),
+            'scenarios': all_scenarios
+        }
+    
+    def save_merged_data(self, merged_data: Dict, output_filename: str = "all_scenarios_merged.json"):
+ 
+        output_path = self.data_dir / output_filename
         
-        # Quality metrics - only if we have scenarios
-        if len(self.all_scenarios) > 0:
-            avg_steps = sum(len(s.get('immediate_steps', [])) for s in self.all_scenarios) / len(self.all_scenarios)
-            avg_symptoms = sum(len(s.get('symptoms', [])) for s in self.all_scenarios) / len(self.all_scenarios)
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(merged_data, f, indent=2, ensure_ascii=False)
             
-            print(f"\n📈 Content quality:")
-            print(f"  Avg steps per scenario:    {avg_steps:.1f}")
-            print(f"  Avg symptoms per scenario: {avg_symptoms:.1f}")
+            logger.info(f"Saved merged data to: {output_path}")
+            logger.info(f"Total scenarios in merged file: {merged_data['total_scenarios']}")
+            
+        except Exception as e:
+            logger.error(f"Error saving merged data: {e}")
+    
+    def run_full_pipeline(self, output_filename: str = "all_scenarios_merged.json") -> Dict:
         
-        print("\n" + "="*70)
+        scenario_files = [
+            "redcross_scenarios.json",
+            "mayo_scenarios.json",
+            "cleveland_scenarios.json",
+            "healthline_scenarios.json",
+            "nhs_scenarios.json",
+            "stjohn_scenarios.json",
+            "webmd_scenarios.json",
+            "cdc_scenarios.json",
+            "checkpoint_american_heart_association.json",
+            "checkpoint_who_emergency_care.json",
+            "checkpoint_medlineplus_nih.json",
+            "checkpoint_red_cross_online.json",
+            "checkpoint_poison_control.json",
+            "checkpoint_kidshealth.json",
+            "checkpoint_familydoctor.json",
+            "checkpoint_emergencycareforyou.json",
+            "checkpoint_aap_healthychildren.json",
+            "checkpoint_johns_hopkins_medicine.json",
+        ]
+        
+        # Merge all scenarios
+        merged_data = self.merge_scenarios(scenario_files)
+        
+        # Save to file
+        self.save_merged_data(merged_data, output_filename)
+        
+        return merged_data
+    
+    def create_categorized_dataset(self, merged_data: Dict, output_filename: str = "scenarios_by_category.json"):
+        
+        logger.info("Creating categorized dataset...")
+        
+        categories = defaultdict(list)
+        
+        for scenario in merged_data['scenarios']:
+            category = scenario.get('category', 'General')
+            categories[category].append(scenario)
+        
+        categorized_data = {
+            'total_scenarios': len(merged_data['scenarios']),
+            'categories': dict(categories),
+            'category_counts': {cat: len(scenarios) for cat, scenarios in categories.items()}
+        }
+        
+        output_path = self.data_dir / output_filename
+        
+        try:
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(categorized_data, f, indent=2, ensure_ascii=False)
+            
+            logger.info(f"Saved categorized data to: {output_path}")
+            logger.info(f"Categories: {len(categories)}")
+            
+            for category, count in sorted(categorized_data['category_counts'].items(), 
+                                         key=lambda x: x[1], reverse=True):
+                logger.info(f"  {category:30s}: {count:4d} scenarios")
+                
+        except Exception as e:
+            logger.error(f"Error saving categorized data: {e}")
+    
+    def validate_scenarios(self, scenarios: List[Dict]) -> Dict:
+        
+        total = len(scenarios)
+        valid = 0
+        missing_fields = defaultdict(int)
+        
+        required_fields = ['title', 'category', 'immediate_steps']
+        
+        for scenario in scenarios:
+            is_valid = True
+            
+            for field in required_fields:
+                if not scenario.get(field):
+                    missing_fields[field] += 1
+                    is_valid = False
+            
+            if is_valid:
+                valid += 1
+        
+        validation_results = {
+            'total_scenarios': total,
+            'valid_scenarios': valid,
+            'invalid_scenarios': total - valid,
+            'validation_rate': (valid / total * 100) if total > 0 else 0,
+            'missing_fields': dict(missing_fields)
+        }
+        
+        logger.info(f"Validation complete: {valid}/{total} scenarios valid ({validation_results['validation_rate']:.1f}%)")
+        
+        if missing_fields:
+            logger.warning("Missing fields found:")
+            for field, count in missing_fields.items():
+                logger.warning(f"  {field}: {count} scenarios")
+        
+        return validation_results
+
+
+if __name__ == "__main__":
+    pipeline = MasterDataPipeline(data_dir="../data")
+    
+    merged_data = pipeline.run_full_pipeline(output_filename="all_scenarios_merged.json")
+    
+    pipeline.create_categorized_dataset(merged_data, output_filename="scenarios_by_category.json")
+    
+    validation_results = pipeline.validate_scenarios(merged_data['scenarios'])
+    
+    logger.info("PIPELINE COMPLETE")
+ 

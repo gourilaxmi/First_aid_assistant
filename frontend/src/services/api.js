@@ -1,5 +1,4 @@
 import axios from 'axios'
-
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const apiClient = axios.create({
@@ -7,10 +6,9 @@ const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 3000000,
+  timeout: 30000,
 })
 
-// Add auth token to requests
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token')
   if (token) {
@@ -19,7 +17,6 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
-// Handle token refresh on 401
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -32,15 +29,12 @@ apiClient.interceptors.response.use(
   }
 )
 
-// API Service
 const api = {
-  // Health check
   async checkHealth() {
     const response = await apiClient.get('/health')
     return response.data
   },
 
-  // Auth Endpoints
   async register(userData) {
     try {
       const response = await apiClient.post('/auth/register', userData)
@@ -83,14 +77,11 @@ const api = {
       return response.data
     } catch (error) {
       console.error('Logout error:', error)
-      // Don't throw - logout should always succeed locally
     }
   },
 }
 
-// First Aid API
 export const firstAidAPI = {
-  // Query Endpoints
   async sendQuery(query, conversationId = null, topK = 10, minScore = 0.6) {
     try {
       const response = await apiClient.post('/api/query', {
@@ -105,7 +96,6 @@ export const firstAidAPI = {
     }
   },
 
-  // Conversation Endpoints
   async getConversations(limit = 20) {
     try {
       const response = await apiClient.get('/api/conversations', {
@@ -121,7 +111,7 @@ export const firstAidAPI = {
 
   async getConversation(conversationId) {
     try {
-      const response = await apiClient.get(`/api/history/${conversationId}`)
+      const response = await apiClient.get(`/api/conversations/${conversationId}`)
       return response.data
     } catch (error) {
       throw new Error(
@@ -134,10 +124,7 @@ export const firstAidAPI = {
     try {
       const response = await apiClient.put(
         `/api/conversations/${conversationId}/title`,
-        null,
-        {
-          params: { title },
-        }
+        { title }
       )
       return response.data
     } catch (error) {
@@ -158,7 +145,6 @@ export const firstAidAPI = {
     }
   },
 
-  // Performance Metrics
   async getMetrics() {
     try {
       const response = await apiClient.get('/api/metrics')

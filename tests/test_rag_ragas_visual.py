@@ -1,15 +1,3 @@
-"""
-Enhanced RAG Testing Pipeline with RAGAS + Visualizations
-Generates comprehensive evaluation metrics with graphs and matrices
-
-Installation:
-    pip install ragas langchain-groq datasets matplotlib seaborn plotly pandas
-
-Usage:
-    python tests/test_rag_ragas_visual.py --full
-    python tests/test_rag_ragas_visual.py --quick
-"""
-
 import os
 import sys
 import json

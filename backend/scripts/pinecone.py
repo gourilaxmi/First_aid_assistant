@@ -13,6 +13,11 @@ from pinecone import Pinecone, ServerlessSpec
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
+from utils.logger_config import get_logger
+
+logger = get_logger(__name__)
+
+
 load_dotenv()
 
 
@@ -39,26 +44,26 @@ class PineconeIntegrator:
         if not self.mongodb_uri:
             raise ValueError("MONGODB_URI not found in environment. Add your MongoDB Atlas connection string.")
         
-        print("="*70)
-        print(" "*15 + "PHASE 2: PINECONE + MONGODB ATLAS INTEGRATION")
-        print("="*70)
+        logger.info("="*70)
+        logger.info(" "*15 + "PHASE 2: PINECONE + MONGODB ATLAS INTEGRATION")
+        logger.info("="*70)
         
         # Initialize BioBERT for embeddings
-        print("\n🔧 Loading BioBERT model...")
+        logger.info("\n Loading BioBERT model...")
         self.tokenizer = AutoTokenizer.from_pretrained(biobert_model)
         self.model = AutoModel.from_pretrained(biobert_model)
         self.model.eval()
-        print(f"✅ BioBERT loaded: {biobert_model}")
+        logger.info("[SUCCESS] BioBERT loaded: {biobert_model}")
         
         # Initialize Pinecone
-        print("\n🔧 Connecting to Pinecone...")
+        logger.info("\n Connecting to Pinecone...")
         self.pc = Pinecone(api_key=self.pinecone_api_key)
         self.index_name = "first-aid-assistant"
         self._setup_pinecone_index()
-        print(f"✅ Pinecone connected: {self.index_name}")
+        logger.info("[SUCCESS] Pinecone connected: {self.index_name}")
         
         # Initialize MongoDB Atlas
-        print("\n🔧 Connecting to MongoDB Atlas...")
+        logger.info("\n Connecting to MongoDB Atlas...")
         try:
             # MongoDB Atlas connection with retry options
             self.mongo_client = MongoClient(
@@ -81,15 +86,15 @@ class PineconeIntegrator:
             self.chunks_collection.create_index("chunk_id", unique=True)
             self.chunks_collection.create_index("scenario_id")
             
-            print(f"✅ MongoDB Atlas connected: {self.db.name}")
+            logger.info("[SUCCESS] MongoDB Atlas connected: {self.db.name}")
             
         except Exception as e:
-            print(f"❌ MongoDB Atlas connection failed: {e}")
-            print("   Check your MONGODB_URI in .env file")
-            print("   Format: mongodb+srv://<username>:<password>@<cluster>.mongodb.net/<database>?retryWrites=true&w=majority")
+            logger.info("[ERROR] MongoDB Atlas connection failed: {e}")
+            logger.info("   Check your MONGODB_URI in .env file")
+            logger.info("   Format: mongodb+srv://<username>:<password>@<cluster>.mongodb.net/<database>?retryWrites=true&w=majority")
             raise
         
-        print("\n" + "="*70)
+        logger.info("\n" + "="*70)
     
     def _setup_pinecone_index(self):
         """Create or connect to Pinecone index"""
@@ -99,7 +104,7 @@ class PineconeIntegrator:
         existing_indexes = [idx.name for idx in self.pc.list_indexes()]
         
         if self.index_name not in existing_indexes:
-            print(f"   Creating new index: {self.index_name}")
+            logger.info("   Creating new index: {self.index_name}")
             self.pc.create_index(
                 name=self.index_name,
                 dimension=dimension,
@@ -110,7 +115,7 @@ class PineconeIntegrator:
                 )
             )
         else:
-            print(f"   Using existing index: {self.index_name}")
+            logger.info("   Using existing index: {self.index_name}")
         
         self.index = self.pc.Index(self.index_name)
     
@@ -224,7 +229,7 @@ class PineconeIntegrator:
     
     def _load_and_validate_scenarios(self, json_filepath: str) -> List[Dict]:
         """Load and validate scenarios from JSON file"""
-        print(f"\n📂 Loading scenarios from: {json_filepath}")
+        logger.info("\n Loading scenarios from: {json_filepath}")
         
         with open(json_filepath, 'r', encoding='utf-8') as f:
             data = json.load(f)
@@ -244,11 +249,11 @@ class PineconeIntegrator:
                         if isinstance(parsed, dict):
                             scenarios.append(parsed)
                         else:
-                            print(f"⚠️  Warning: Item {i} is a string that parsed to {type(parsed).__name__}, skipping")
+                            logger.info("[WARNING]  Warning: Item {i} is a string that parsed to {type(parsed).__name__}, skipping")
                     except json.JSONDecodeError:
-                        print(f"⚠️  Warning: Item {i} is not valid JSON, skipping: {item[:100]}")
+                        logger.info("[WARNING]  Warning: Item {i} is not valid JSON, skipping: {item[:100]}")
                 else:
-                    print(f"⚠️  Warning: Item {i} is {type(item).__name__}, expected dict, skipping")
+                    logger.info("[WARNING]  Warning: Item {i} is {type(item).__name__}, expected dict, skipping")
         
         elif isinstance(data, dict):
             # Check if it's a single scenario or wrapper object
@@ -261,7 +266,7 @@ class PineconeIntegrator:
                 # Might be nested structure, try to extract scenarios
                 for key, value in data.items():
                     if isinstance(value, list):
-                        print(f"   Found list under key '{key}', checking items...")
+                        logger.info("   Found list under key '{key}', checking items...")
                         for item in value:
                             if isinstance(item, dict):
                                 scenarios.append(item)
@@ -275,7 +280,7 @@ class PineconeIntegrator:
         validated_scenarios = []
         for i, scenario in enumerate(scenarios):
             if not isinstance(scenario, dict):
-                print(f"⚠️  Warning: Scenario {i} is {type(scenario).__name__}, skipping")
+                logger.info("[WARNING]  Warning: Scenario {i} is {type(scenario).__name__}, skipping")
                 continue
             
             # Add scenario_id if missing
@@ -284,23 +289,23 @@ class PineconeIntegrator:
             
             validated_scenarios.append(scenario)
         
-        print(f"📊 Found {len(validated_scenarios)} valid scenarios")
+        logger.info(" Found {len(validated_scenarios)} valid scenarios")
         
         if len(validated_scenarios) == 0:
-            print("\n❌ No valid scenarios found!")
-            print("   Please check your JSON file structure.")
-            print("   Expected format: List of dictionaries or {'scenarios': [...]}")
+            logger.info("\n[ERROR] No valid scenarios found!")
+            logger.info("   Please check your JSON file structure.")
+            logger.info("   Expected format: List of dictionaries or {'scenarios': [...]}")
             raise ValueError("No valid scenarios to process")
         
         # Show sample of first scenario
         if validated_scenarios:
-            print(f"\n📋 Sample scenario structure:")
+            logger.info("\n Sample scenario structure:")
             sample = validated_scenarios[0]
-            print(f"   Keys: {list(sample.keys())}")
+            logger.info("   Keys: {list(sample.keys())}")
             if 'title' in sample:
-                print(f"   Title: {sample['title']}")
+                logger.info("   Title: {sample['title']}")
             if 'category' in sample:
-                print(f"   Category: {sample['category']}")
+                logger.info("   Category: {sample['category']}")
         
         return validated_scenarios
     
@@ -315,7 +320,7 @@ class PineconeIntegrator:
         # Load and validate scenarios
         scenarios = self._load_and_validate_scenarios(json_filepath)
         
-        print(f"\n📄 Processing scenarios...")
+        logger.info("\n Processing scenarios...")
         
         total_chunks = 0
         all_vectors = []
@@ -378,54 +383,54 @@ class PineconeIntegrator:
                 
                 # Progress update
                 if idx % 50 == 0:
-                    print(f"  ✓ Processed {idx}/{len(scenarios)} scenarios | {total_chunks} chunks")
+                    logger.info("  [OK] Processed {idx}/{len(scenarios)} scenarios | {total_chunks} chunks")
             
             except Exception as e:
                 error_msg = f"Scenario {idx} ({scenario.get('scenario_id', 'unknown')}): {str(e)}"
                 errors.append(error_msg)
-                print(f"  ⚠️  Error processing scenario {idx}: {str(e)}")
+                logger.info("  [WARNING]  Error processing scenario {idx}: {str(e)}")
                 continue
         
         # Upsert all vectors to Pinecone in batches
         if all_vectors:
-            print(f"\n📤 Uploading {len(all_vectors)} vectors to Pinecone...")
+            logger.info("\n Uploading {len(all_vectors)} vectors to Pinecone...")
             
             for i in range(0, len(all_vectors), batch_size):
                 batch = all_vectors[i:i+batch_size]
                 self.index.upsert(vectors=batch)
                 
                 if (i + batch_size) % 500 == 0:
-                    print(f"  ✓ Uploaded {min(i+batch_size, len(all_vectors))}/{len(all_vectors)} vectors")
+                    logger.info("  [OK] Uploaded {min(i+batch_size, len(all_vectors))}/{len(all_vectors)} vectors")
         
-        print(f"\n✅ Processing complete!")
-        print(f"   Total scenarios: {len(scenarios)}")
-        print(f"   Successfully processed: {len(scenarios) - len(errors)}")
-        print(f"   Total chunks: {total_chunks}")
+        logger.info("\n[SUCCESS] Processing complete!")
+        logger.info("   Total scenarios: {len(scenarios)}")
+        logger.info("   Successfully processed: {len(scenarios) - len(errors)}")
+        logger.info("   Total chunks: {total_chunks}")
         if len(scenarios) > 0 and total_chunks > 0:
-            print(f"   Average chunks per scenario: {total_chunks/len(scenarios):.1f}")
+            logger.info("   Average chunks per scenario: {total_chunks/len(scenarios):.1f}")
         
         if errors:
-            print(f"\n⚠️  Encountered {len(errors)} errors:")
+            logger.info("\n[WARNING]  Encountered {len(errors)} errors:")
             for error in errors[:5]:  # Show first 5 errors
-                print(f"   - {error}")
+                logger.info("   - {error}")
             if len(errors) > 5:
-                print(f"   ... and {len(errors) - 5} more")
+                logger.info("   ... and {len(errors) - 5} more")
         
         # Get final stats
         stats = self.index.describe_index_stats()
-        print(f"\n📊 Pinecone Index Stats:")
-        print(f"   Total vectors: {stats.total_vector_count}")
-        print(f"   Dimension: {stats.dimension}")
+        logger.info("\n Pinecone Index Stats:")
+        logger.info("   Total vectors: {stats.total_vector_count}")
+        logger.info("   Dimension: {stats.dimension}")
         
         mongo_scenario_count = self.scenarios_collection.count_documents({})
         mongo_chunk_count = self.chunks_collection.count_documents({})
-        print(f"\n📊 MongoDB Atlas Stats:")
-        print(f"   Scenarios: {mongo_scenario_count}")
-        print(f"   Chunks: {mongo_chunk_count}")
+        logger.info("\n MongoDB Atlas Stats:")
+        logger.info("   Scenarios: {mongo_scenario_count}")
+        logger.info("   Chunks: {mongo_chunk_count}")
     
     def test_search(self, query: str, top_k: int = 5):
         """Test semantic search with a query"""
-        print(f"\n🔍 Testing search: '{query}'")
+        logger.info("\n Testing search: '{query}'")
         
         # Generate query embedding
         query_embedding = self.generate_embedding(query)
@@ -437,13 +442,13 @@ class PineconeIntegrator:
             include_metadata=True
         )
         
-        print(f"\n📋 Top {top_k} results:")
+        logger.info("\n Top {top_k} results:")
         for i, match in enumerate(results.matches, 1):
-            print(f"\n{i}. Score: {match.score:.4f}")
-            print(f"   Title: {match.metadata.get('title', 'N/A')}")
-            print(f"   Category: {match.metadata.get('category', 'N/A')}")
-            print(f"   Source: {match.metadata.get('source', 'N/A')[:50]}")
-            print(f"   Preview: {match.metadata.get('text', '')[:150]}...")
+            logger.info("\n{i}. Score: {match.score:.4f}")
+            logger.info("   Title: {match.metadata.get('title', 'N/A')}")
+            logger.info("   Category: {match.metadata.get('category', 'N/A')}")
+            logger.info("   Source: {match.metadata.get('source', 'N/A')[:50]}")
+            logger.info("   Preview: {match.metadata.get('text', '')[:150]}...")
         
         return results
 
@@ -475,9 +480,9 @@ def main():
     
     # Test queries
     if args.test_queries:
-        print("\n" + "="*70)
-        print(" "*20 + "RUNNING TEST QUERIES")
-        print("="*70)
+        logger.info("\n" + "="*70)
+        logger.info(" "*20 + "RUNNING TEST QUERIES")
+        logger.info("="*70)
         
         test_queries = [
             "severe bleeding wound",
@@ -491,10 +496,10 @@ def main():
             integrator.test_search(query, top_k=3)
             print()
     
-    print("\n" + "="*70)
-    print("✅ PHASE 2 COMPLETE")
-    print("   Next: Use the RAG assistant for queries")
-    print("="*70)
+    logger.info("\n" + "="*70)
+    logger.info("[SUCCESS] PHASE 2 COMPLETE")
+    logger.info("   Next: Use the RAG assistant for queries")
+    logger.info("="*70)
 
 
 if __name__ == "__main__":

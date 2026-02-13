@@ -25,7 +25,7 @@ function AuthProvider({ children }) {
 
   const fetchCurrentUser = async (accessToken) => {
     try {
-      const userData = await api.getCurrentUser(accessToken)
+      const userData = await api.getCurrentUser()
       setUser(userData)
       setToken(accessToken)
     } catch (error) {
@@ -62,9 +62,10 @@ function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
+      const currentToken = localStorage.getItem('access_token')
       const refreshToken = localStorage.getItem('refresh_token')
-      if (token && refreshToken) {
-        await api.logout(token, refreshToken)
+      if (currentToken && refreshToken) {
+        await api.logout()
       }
     } catch (error) {
       console.error('Logout error:', error)
