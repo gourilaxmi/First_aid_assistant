@@ -1,6 +1,3 @@
-"""
-Authentication and authorization utilities for First Aid Assistant API
-"""
 import logging
 import warnings
 from datetime import datetime, timedelta

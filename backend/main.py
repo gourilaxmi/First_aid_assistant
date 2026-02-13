@@ -326,12 +326,22 @@ async def query(
             verbose=False
         )
 
-        # Parse confidence score
         confidence = result.get('confidence', 'Unknown')
         if isinstance(confidence, str) and '%' in confidence:
             confidence_percentage = float(confidence.replace('%', ''))
+        elif isinstance(confidence, (int, float)):
+            confidence_percentage = float(confidence)
+        elif isinstance(confidence, str):
+            confidence_map = {
+                'high': 85.0,
+                'medium': 65.0,
+                'moderate': 65.0,
+                'low': 40.0,
+                'unknown': 0.0
+            }
+            confidence_percentage = confidence_map.get(confidence.lower(), 0.0)
         else:
-            confidence_percentage = float(confidence) if confidence != 'Unknown' else 0.0
+            confidence_percentage = 0.0
 
         # Save to DB if authenticated
         if current_user:

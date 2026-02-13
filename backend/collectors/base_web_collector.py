@@ -17,7 +17,6 @@ from collectors.base_collector import BaseCollector
 
 urllib3.disable_warnings(InsecureRequestWarning)
 
-# --- Configure Backend Logging ---
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',

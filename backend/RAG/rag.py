@@ -1,7 +1,4 @@
-"""
-First Aid RAG Assistant - Main Module
-Refactored version with modular components and logging
-"""
+
 
 import os
 import logging

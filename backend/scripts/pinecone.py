@@ -22,9 +22,7 @@ load_dotenv()
 
 
 class PineconeIntegrator:
-    """
-    Integrate collected scenarios with Pinecone vector database and MongoDB Atlas
-    """
+   
     
     def __init__(
         self,
@@ -32,10 +30,8 @@ class PineconeIntegrator:
         mongodb_uri: str = None,
         biobert_model: str = "dmis-lab/biobert-v1.1"
     ):
-        # Get API keys
         self.pinecone_api_key = pinecone_api_key or os.getenv('PINECONE_API_KEY')
         
-        # MongoDB Atlas URI (connection string from Atlas dashboard)
         self.mongodb_uri = mongodb_uri or os.getenv('MONGODB_URI')
         
         if not self.pinecone_api_key:
@@ -48,27 +44,23 @@ class PineconeIntegrator:
         logger.info(" "*15 + "PHASE 2: PINECONE + MONGODB ATLAS INTEGRATION")
         logger.info("="*70)
         
-        # Initialize BioBERT for embeddings
         logger.info("\n Loading BioBERT model...")
         self.tokenizer = AutoTokenizer.from_pretrained(biobert_model)
         self.model = AutoModel.from_pretrained(biobert_model)
         self.model.eval()
         logger.info("[SUCCESS] BioBERT loaded: {biobert_model}")
         
-        # Initialize Pinecone
         logger.info("\n Connecting to Pinecone...")
         self.pc = Pinecone(api_key=self.pinecone_api_key)
         self.index_name = "first-aid-assistant"
         self._setup_pinecone_index()
         logger.info("[SUCCESS] Pinecone connected: {self.index_name}")
         
-        # Initialize MongoDB Atlas
         logger.info("\n Connecting to MongoDB Atlas...")
         try:
-            # MongoDB Atlas connection with retry options
             self.mongo_client = MongoClient(
                 self.mongodb_uri,
-                serverSelectionTimeoutMS=5000,  # 5 second timeout
+                serverSelectionTimeoutMS=5000,  
                 retryWrites=True,
                 w='majority'
             )
@@ -429,7 +421,7 @@ class PineconeIntegrator:
         logger.info("   Chunks: {mongo_chunk_count}")
     
     def test_search(self, query: str, top_k: int = 5):
-        """Test semantic search with a query"""
+     
         logger.info("\n Testing search: '{query}'")
         
         # Generate query embedding
@@ -454,7 +446,6 @@ class PineconeIntegrator:
 
 
 def main():
-    """Main execution"""
     import argparse
     
     parser = argparse.ArgumentParser(description='Integrate collected scenarios with Pinecone + MongoDB Atlas')
@@ -480,9 +471,7 @@ def main():
     
     # Test queries
     if args.test_queries:
-        logger.info("\n" + "="*70)
-        logger.info(" "*20 + "RUNNING TEST QUERIES")
-        logger.info("="*70)
+        logger.info( "RUNNING TEST QUERIES")
         
         test_queries = [
             "severe bleeding wound",
@@ -496,11 +485,8 @@ def main():
             integrator.test_search(query, top_k=3)
             print()
     
-    logger.info("\n" + "="*70)
     logger.info("[SUCCESS] PHASE 2 COMPLETE")
     logger.info("   Next: Use the RAG assistant for queries")
-    logger.info("="*70)
-
-
+    
 if __name__ == "__main__":
     main()
