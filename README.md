@@ -1,8 +1,7 @@
-# 🚑 First Aid Assistant
+# 🚑First Aid Assistant
 
 An AI-powered first aid guidance platform built with a RAG (Retrieval-Augmented Generation) pipeline, FastAPI backend, and React frontend. Provides evidence-based first aid information sourced from authoritative medical references.
 
-> ⚠️ **DISCLAIMER:** This tool provides informational guidance only. For life-threatening emergencies, call **108/100** immediately. Always seek professional medical care.
 
 ---
 
@@ -21,12 +20,12 @@ An AI-powered first aid guidance platform built with a RAG (Retrieval-Augmented 
 
 ## ✨ Features
 
-- 🤖 **RAG-powered responses** using BioBERT embeddings + Pinecone vector search
-- 💬 **Conversation history** — save, rename, and delete past consultations
-- 🔐 **User authentication** — register, login, JWT-based sessions
-- 👤 **Guest mode** — use without an account (no history saved)
-- 📊 **Confidence scoring** — each response includes a confidence level
-- 🏥 **Medical sources** — data from Red Cross, WHO, NHS, Mayo Clinic, and more
+- **RAG-powered responses** using BioBERT embeddings + Pinecone vector search
+- **Conversation history** — save, rename, and delete past consultations
+- **User authentication** — register, login, JWT-based sessions
+- **Guest mode** — use without an account (no history saved)
+- **Confidence scoring** — each response includes a confidence level
+- **Medical sources** — data from Red Cross, WHO, NHS, Mayo Clinic, and more
 
 ---
 
@@ -43,7 +42,7 @@ An AI-powered first aid guidance platform built with a RAG (Retrieval-Augmented 
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 first_aid_assistant/
@@ -81,7 +80,7 @@ first_aid_assistant/
 
 ---
 
-## ✅ Prerequisites
+## Prerequisites
 
 - Python 3.10+
 - Node.js 18+
@@ -92,7 +91,7 @@ first_aid_assistant/
 
 ---
 
-## ⚙️ Setup & Installation
+## Setup & Installation
 
 ### 1. Clone the repository
 
@@ -128,7 +127,7 @@ cp frontend.env.example .env
 
 ---
 
-## 🔑 Environment Variables
+## Environment Variables
 
 ### Backend (`backend/.env`)
 
@@ -158,7 +157,7 @@ VITE_API_URL=http://localhost:8000
 
 ---
 
-## 🚀 Running the Application
+## Running the Application
 
 ### Backend
 
@@ -182,7 +181,7 @@ Frontend runs at: `http://localhost:5173`
 
 ---
 
-## 📡 API Endpoints
+## API Endpoints
 
 ### Auth
 | Method | Endpoint | Description |
@@ -212,7 +211,7 @@ Frontend runs at: `http://localhost:5173`
 
 ---
 
-## 📝 Notes
+## Notes
 
 - The `first_aid/` virtual environment folder is excluded from git — always use your own conda/venv
 - Log files in `backend/logs/` are excluded from git
