@@ -1,3 +1,7 @@
+# Build tools
+setuptools>=65.0.0
+wheel
+
 # FastAPI and server
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
@@ -15,7 +19,7 @@ bcrypt==4.1.2
 # Vector Database
 pinecone==5.0.0
 
-# ML and Embeddings 
+# ML and Embeddings
 torch
 transformers
 sentence-transformers
