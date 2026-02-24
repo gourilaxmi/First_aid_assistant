@@ -11,6 +11,7 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
+import certifi
 from pymongo import MongoClient, DESCENDING
 
 from RAG.rag import FirstAidRAGAssistant
@@ -141,7 +142,14 @@ if not MONGODB_URI:
     logger.critical("MONGODB_URI environment variable is required")
     raise ValueError("MONGODB_URI environment variable is required")
 
-mongo_client = MongoClient(MONGODB_URI)
+mongo_client = MongoClient(
+    MONGODB_URI,
+    tls=True,
+    tlsCAFile=certifi.where(),
+    serverSelectionTimeoutMS=30000,
+    connectTimeoutMS=20000,
+    socketTimeoutMS=20000,
+)
 db = mongo_client['first_aid_db']
 users_collection = db['users']
 conversations_collection = db['conversations']
@@ -540,7 +548,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", default="0.0.0.0")
-    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--port", type=int, default=int(os.getenv("PORT", 8000)))
     parser.add_argument("--reload", action="store_true")
 
     args = parser.parse_args()
