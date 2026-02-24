@@ -1,7 +1,6 @@
-
-
 import os
 import logging
+import certifi
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 from dotenv import load_dotenv
@@ -60,9 +59,7 @@ class FirstAidRAGAssistant:
         if not all([self.pinecone_api_key, self.groq_api_key, self.mongodb_uri]):
             raise ValueError("Missing required API keys")
         
-        logger.info("=" * 70)
         logger.info("FIRST AID RAG ASSISTANT")
-        logger.info("=" * 70)
         
         # Initialize components
         self.embedding_gen = EmbeddingGenerator(biobert_model)
@@ -76,9 +73,16 @@ class FirstAidRAGAssistant:
         stats = self.index.describe_index_stats()
         logger.info(f"Pinecone connected: {stats.total_vector_count} vectors")
         
-        # Initialize MongoDB
+        # Initialize MongoDB with SSL fix for Python 3.11+ on Render
         logger.info("Connecting to MongoDB...")
-        self.mongo_client = MongoClient(self.mongodb_uri)
+        self.mongo_client = MongoClient(
+            self.mongodb_uri,
+            tls=True,
+            tlsCAFile=certifi.where(),
+            serverSelectionTimeoutMS=30000,
+            connectTimeoutMS=20000,
+            socketTimeoutMS=20000,
+        )
         self.db = self.mongo_client['first_aid_db']
         self.scenarios_collection = self.db['scenarios']
         self.chunks_collection = self.db['chunks']
@@ -89,9 +93,7 @@ class FirstAidRAGAssistant:
         chunk_count = self.chunks_collection.count_documents({})
         logger.info(f"MongoDB connected: {scenario_count} scenarios, {chunk_count} chunks")
         
-        logger.info("=" * 70)
         logger.info("First Aid Assistant Ready!")
-        logger.info("=" * 70)
     
     def search_relevant_chunks(
         self,
@@ -250,16 +252,13 @@ class FirstAidRAGAssistant:
     
     def interactive_mode(self):
         """Run interactive chat mode"""
-        logger.info("=" * 70)
-        logger.info("FIRST AID ASSISTANT - INTERACTIVE MODE")
-        logger.info("=" * 70)
+        logger.info("FIRST AID ASSISTANT")
         logger.info("Ask any first aid question. Type 'help' for examples.")
         logger.info("")
         logger.info("Commands:")
         logger.info("  'quit' or 'exit' - Exit")
         logger.info("  'help' - Show examples")
         logger.info("  'new' - Start new conversation")
-        logger.info("=" * 70)
         
         conversation_id = f"conv_{int(datetime.utcnow().timestamp())}"
         logger.info(f"Conversation ID: {conversation_id}")
@@ -337,9 +336,7 @@ def main():
             assistant.interactive_mode()
         elif args.query:
             result = assistant.answer_query(args.query, verbose=args.verbose)
-            print("\n" + "=" * 70)
             print("RESPONSE:")
-            print("=" * 70)
             print(result['response'])
         else:
             parser.print_help()
