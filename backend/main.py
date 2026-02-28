@@ -29,7 +29,6 @@ from api.conversation import (
     update_conversation,
     save_chat_messages
 )
-
 from utils.logger_config import setup_logger, get_default_log_file
 
 load_dotenv()
@@ -39,10 +38,6 @@ logger = setup_logger(
     log_level=logging.INFO,
     log_file=get_default_log_file('api')
 )
-
-# =============================================================================
-# Configuration
-# =============================================================================
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
@@ -120,10 +115,14 @@ app = FastAPI(
     version="3.0.0"
 )
 
-ALLOWED_ORIGINS = os.getenv(
-    "ALLOWED_ORIGINS",
-    "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:4173"
-).split(",")
+ALLOWED_ORIGINS = [
+    "https://first-aid-assistant.vercel.app",
+    "https://first-aid-assistant-git-master-gourilakshmi-ss-projects.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:4173",
+]
 
 app.add_middleware(
     CORSMiddleware,
@@ -163,7 +162,9 @@ chat_history_collection.create_index([("conversation_id", 1), ("timestamp", 1)])
 
 logger.info("Database indexes created successfully")
 
+# =============================================================================
 # Initialize RAG Assistant
+# =============================================================================
 
 logger.info("Initializing First Aid RAG Assistant")
 
@@ -174,22 +175,24 @@ except Exception as e:
     logger.error(f"Failed to initialize RAG Assistant: {e}", exc_info=True)
     rag_assistant = None
 
-# FIX: Proper async dependency functions 
+# =============================================================================
+# Dependencies
+# =============================================================================
 
 async def get_optional_user(token: Optional[str] = Depends(oauth2_scheme)):
-    """Dependency for optional authentication (guest + logged in users)"""
     return await get_current_user_optional(
         token, users_collection, SECRET_KEY, ALGORITHM
     )
 
 
 async def get_required_user(token: str = Depends(oauth2_scheme)):
-    """Dependency for required authentication (logged in users only)"""
     return await get_current_user(
         token, users_collection, SECRET_KEY, ALGORITHM
     )
 
+# =============================================================================
 # Authentication Endpoints
+# =============================================================================
 
 @app.post("/auth/register", response_model=Token, status_code=status.HTTP_201_CREATED)
 async def register(user: UserCreate):
@@ -198,7 +201,6 @@ async def register(user: UserCreate):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already registered"
         )
-
     if users_collection.find_one({"email": user.email}):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -206,7 +208,7 @@ async def register(user: UserCreate):
         )
 
     user_id = str(uuid.uuid4())
-    hashed_password = get_password_hash(user.password)
+    hashed_password = get_password_hash(user.password)  # truncation handled inside
 
     user_doc = {
         "user_id": user_id,
@@ -249,7 +251,10 @@ async def register(user: UserCreate):
 
 @app.post("/auth/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    # Search by username OR email
     user = users_collection.find_one({"username": form_data.username})
+    if not user:
+        user = users_collection.find_one({"email": form_data.username})
 
     if not user or not verify_password(form_data.password, user["hashed_password"]):
         raise HTTPException(
@@ -257,7 +262,6 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-
     logger.info(f"User logged in: {form_data.username}")
 
     access_token = create_access_token(
@@ -303,12 +307,14 @@ async def logout():
     return {"message": "Logged out successfully"}
 
 
+# =============================================================================
 # Query Endpoint
+# =============================================================================
 
 @app.post("/api/query", response_model=QueryResponse)
 async def query(
     request: QueryRequest,
-    current_user: Optional[dict] = Depends(get_optional_user)  # FIX: proper async dep
+    current_user: Optional[dict] = Depends(get_optional_user)
 ):
     if not rag_assistant:
         raise HTTPException(
@@ -351,12 +357,10 @@ async def query(
         else:
             confidence_percentage = 0.0
 
-        # Save to DB if authenticated
         if current_user:
             conversation_exists = conversations_collection.find_one({
                 "conversation_id": conversation_id
             })
-
             if not conversation_exists:
                 create_conversation(
                     conversation_id,
@@ -372,7 +376,6 @@ async def query(
                     request.query,
                     conversations_collection
                 )
-
             save_chat_messages(
                 conversation_id,
                 request.query,
@@ -405,33 +408,34 @@ async def query(
         )
 
 
+# =============================================================================
+# Conversation Endpoints
+# =============================================================================
+
 @app.get("/api/conversations")
 async def get_conversations(
     limit: int = 20,
-    current_user: dict = Depends(get_required_user)  # FIX
+    current_user: dict = Depends(get_required_user)
 ):
     conversations = list(
         conversations_collection.find({"user_id": current_user["user_id"]})
         .sort("updated_at", -1)
         .limit(min(limit, MAX_CONVERSATIONS_PER_USER))
     )
-
     for conv in conversations:
         conv.pop("_id", None)
-
     return {"conversations": conversations}
 
 
 @app.get("/api/conversations/{conversation_id}")
 async def get_conversation(
     conversation_id: str,
-    current_user: dict = Depends(get_required_user)  # FIX
+    current_user: dict = Depends(get_required_user)
 ):
     conv = conversations_collection.find_one({
         "conversation_id": conversation_id,
         "user_id": current_user["user_id"]
     })
-
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
@@ -439,10 +443,8 @@ async def get_conversation(
         chat_history_collection.find({"conversation_id": conversation_id})
         .sort("timestamp", 1)
     )
-
     for msg in messages:
         msg.pop("_id", None)
-
     conv.pop("_id", None)
 
     return {"conversation": conv, "messages": messages}
@@ -452,13 +454,12 @@ async def get_conversation(
 async def get_conversation_history(
     conversation_id: str,
     limit: int = 50,
-    current_user: dict = Depends(get_required_user)  # FIX
+    current_user: dict = Depends(get_required_user)
 ):
     conv = conversations_collection.find_one({
         "conversation_id": conversation_id,
         "user_id": current_user["user_id"]
     })
-
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
@@ -467,7 +468,6 @@ async def get_conversation_history(
         .sort("timestamp", 1)
         .limit(limit)
     )
-
     for msg in messages:
         msg.pop("_id", None)
 
@@ -482,7 +482,7 @@ async def get_conversation_history(
 async def update_conversation_title(
     conversation_id: str,
     request: UpdateTitleRequest,
-    current_user: dict = Depends(get_required_user)  # FIX
+    current_user: dict = Depends(get_required_user)
 ):
     result = conversations_collection.update_one(
         {
@@ -496,31 +496,31 @@ async def update_conversation_title(
             }
         }
     )
-
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Conversation not found")
-
     return {"message": "Title updated successfully"}
 
 
 @app.delete("/api/conversations/{conversation_id}")
 async def delete_conversation(
     conversation_id: str,
-    current_user: dict = Depends(get_required_user)  # FIX
+    current_user: dict = Depends(get_required_user)
 ):
     result = conversations_collection.delete_one({
         "conversation_id": conversation_id,
         "user_id": current_user["user_id"]
     })
-
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
     chat_history_collection.delete_many({"conversation_id": conversation_id})
     logger.info(f"Deleted conversation {conversation_id}")
-
     return {"message": "Conversation deleted successfully"}
 
+
+# =============================================================================
+# Health Endpoints
+# =============================================================================
 
 @app.get("/")
 async def root():
